@@ -17,8 +17,14 @@ module Seven
     end
 
     def can?(current_user, ability, target = nil)
-      _matcher, rule_class = rules.find {|m, rc| m === target }
-      return false unless rule_class
+      matched_rules = rules.select {|m, rc| m === target || m == target }
+      return false if matched_rules.empty?
+
+      # class A; end
+      # class B < A; end
+      # [A, B, Object].min # => B
+      # find last class
+      rule_class = matched_rules.min_by(&:first).last
       rule_class.new(current_user, target).abilities.include?(ability.to_sym)
     end
 

@@ -44,6 +44,51 @@ RSpec.describe Seven::Manager do
   end
 
   describe '#can?' do
+    let(:user) { user1 }
+
+    before :each do
+      manager.define_rules(Object) { can :read_home }
+      manager.define_rules(Topic) { can :read_topic }
+      manager.define_rules(ChildTopic) { can :read_child_topic }
+      manager.define_rules(User) { can :read_user }
+      manager.define_rules('Other') { can :read_something }
+    end
+
+    it 'should new rule class with user and target' do
+      rule_cls = manager.rules.find {|m, rc| m == Topic }.last
+      rule_instance = double(abilities: [])
+
+      expect(rule_cls).to receive(:new).with(user, Topic).and_return(rule_instance)
+      manager.can?(user, :read_home, Topic)
+
+      expect(rule_cls).to receive(:new).with(123, Topic).and_return(rule_instance)
+      manager.can?(123, :read_home, Topic)
+
+      rule_cls = manager.rules.find {|m, rc| m == Object }.last
+      expect(rule_cls).to receive(:new).with(123, nil).and_return(rule_instance)
+      manager.can?(123, :read_home)
+    end
+
+    it 'should can read_home' do
+      expect(manager.can?(user, :read_home)).to eql(true)
+      expect(manager.can?(user, :read_home, nil)).to eql(true)
+      expect(manager.can?(user, :read_home, 'hello')).to eql(true)
+    end
+
+    it 'should can read_topic if target eql topic' do
+      expect(manager.can?(user, :read_topic, Topic)).to eql(true)
+      expect(manager.can?(user, :read_topic, User)).to eql(false)
+      expect(manager.can?(user, :read_topic, ChildTopic)).to eql(false)
+      expect(manager.can?(user, :read_child_topic, Topic)).to eql(false)
+      expect(manager.can?(user, :read_child_topic, ChildTopic)).to eql(true)
+    end
+
+    it 'should support instance match' do
+      expect(manager.can?(user, :read_topic, topic1)).to eql(true)
+      expect(manager.can?(user, :read_topic, Topic.new)).to eql(true)
+      expect(manager.can?(user, :read_topic, ChildTopic.new)).to eql(false)
+      expect(manager.can?(user, :read_child_topic, ChildTopic)).to eql(true)
+    end
   end
 
   describe '#add_dynamic_rule' do

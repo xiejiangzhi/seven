@@ -33,7 +33,7 @@ Define system rules
 ```
 # all objects, global rules
 manager.define_rules(Object) do
-  can(:read_home)
+  can :read_home, :read_topics
 end
 
 # Topic and Topic instances
@@ -92,7 +92,7 @@ Check abilities
 Target is nil
 
 ```
-manager.define_rules(Object) { [:read_topics] }
+manager.define_rules(Object) { can :read_topics }
 manager.can?(current_user, :read_topics) # true
 manager.can?(nil, :read_topics) # true
 manager.can?(current_user, :read_user) # false
@@ -107,7 +107,7 @@ manager.can?(nil, :edit_user) # true
 Specify target class
 
 ```
-manager.define_rules(Topic) { [:read_topics] }
+manager.define_rules(Topic) { can :read_topics }
 manager.can?(nil, :read_topics, Topic) # true
 manager.can?(nil, :read_topics, Topic.first) # true
 manager.can?(current_user, :read_topics, Topic.first) # true
@@ -124,7 +124,7 @@ manager.can?(nil, :edit_user) # false
 Specify instance
 
 ```
-manager.define_rules(Topic.first) { [:read_topics] }
+manager.define_rules(Topic.first) { can :read_topics }
 manager.can?(nil, :read_topics, Topic) # false
 manager.can?(nil, :read_topics, Topic.first) # true
 manager.can?(current_user, :read_topics, Topic.first) # true
@@ -139,6 +139,12 @@ manager.can?(current_user, :edit_user, User.last) # false
 manager.can?(current_user, :edit_user) # false
 manager.can?(nil, :edit_user) # false
 ```
+
+
+## TODO
+
+* [ ] Dynamic rule
+* [ ] Rails Helpers
 
 
 ## Development

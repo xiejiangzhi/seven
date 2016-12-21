@@ -23,3 +23,6 @@ class Topic
   end
 end
 
+class ChildTopic < Topic
+end
+
