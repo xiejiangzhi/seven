@@ -23,45 +23,59 @@ Or install it yourself as:
 New manager
 
 ```
-manager = Seven.new(store: {redis: Redis.current})
-manager = Seven.new(store: {activerecord: UserAbility})
+manager = Seven.new # save dynamic abilities to memory store
+manager = Seven.new(store: {redis: Redis.current}) # redis store
+manager = Seven.new(store: {activerecord: UserAbility}) # db store
 ```
 
 Define system rules
 
 ```
-# all objects
-manager.define_rules(Object, [:read_topics])
+# all objects, global rules
+manager.define_rules(Object) do
+  can(:read_home)
+end
 
 # Topic and Topic instances
 class MyTopicAbilities
   include Seven::Abilities
 
-  def abilities(current_user, target_topic)
-    add_rules(:read_topic)
-    add_rules(:edit_topic, :destroy_topic) if target_topic.user_id == current_user.id
+  # Instance methods:
+  #   current_user:
+  #   target:
+  abilities do
+    can(:read_topic)
+    can_manager_topic if target_topic.user_id == current_user.id
 
-    # remove user_role rules and abilities rules
-    del_rules(:edit_topic, :destroy_topic) if target_topic.is_lock
+    cannot_manager_topic if target_topic.is_lock
   end
 
-  # require user.role
-  user_role_abilities :admin, :editor do
-    add_rules :edit_topic
+  # if [:admin, :editor].include?(current_user.role)
+  abilities :role, [:admin, :editor] do
+    can_manager_topic
   end
 
-  user_role_abilities :reviewer do
-    add_rules :review_topic
+  abilities :role, [:reviewer] do
+    can :review_topic
+  end
+
+
+  def can_manager_topic
+    can :edit_topic, :destroy_topic
+  end
+
+  def cannot_manager_topic
+    cannot :edit_topic, :destroy_topic
   end
 end
 
-manager.define_rules(User, MyUserAbilities)
+manager.define_rules(Topic, MyTopicAbilities)
 
 # with block
-manager.define_rules(User) do |current_user, target|
-  add_rules(:read_user)
-  add_rules(:edit_user) if target.id == current_user.id
-  add_rules(:destroy_user) if current_user.is_admin?
+manager.define_rules(User) do
+  can(:read_user)
+  can(:edit_user) if target.id == current_user.id
+  can(:destroy_user) if current_user.is_admin?
 end
 ```
 
@@ -78,51 +92,51 @@ Check abilities
 Target is nil
 
 ```
-manager.define_rules(Object, [:read_topics])
-manager.can?(user, :read_topics) # true
+manager.define_rules(Object) { [:read_topics] }
+manager.can?(current_user, :read_topics) # true
 manager.can?(nil, :read_topics) # true
-manager.can?(user, :read_user) # false
+manager.can?(current_user, :read_user) # false
 
-manager.can?(user, :edit_user) # false
+manager.can?(current_user, :edit_user) # false
 
 manager.add_dynamic_rule(user, :edit_user)
-manager.can?(user, :edit_user) # true
+manager.can?(current_user, :edit_user) # true
 manager.can?(nil, :edit_user) # true
 ```
 
 Specify target class
 
 ```
-manager.define_rules(Topic, [:read_topics])
+manager.define_rules(Topic) { [:read_topics] }
 manager.can?(nil, :read_topics, Topic) # true
 manager.can?(nil, :read_topics, Topic.first) # true
-manager.can?(user, :read_topics, Topic.first) # true
-manager.can?(user, :read_topics) # false
+manager.can?(current_user, :read_topics, Topic.first) # true
+manager.can?(current_user, :read_topics) # false
 manager.can?(nil, :read_topics) # false
 
 manager.add_dynamic_rule(user, :edit_user, User)
-manager.can?(user, :edit_user, User) # true
-manager.can?(user, :edit_user, User.first) # true
-manager.can?(user, :edit_user) # false
+manager.can?(current_user, :edit_user, User) # true
+manager.can?(current_user, :edit_user, User.first) # true
+manager.can?(current_user, :edit_user) # false
 manager.can?(nil, :edit_user) # false
 ```
 
 Specify instance
 
 ```
-manager.define_rules(Topic.first, [:read_topics])
+manager.define_rules(Topic.first) { [:read_topics] }
 manager.can?(nil, :read_topics, Topic) # false
 manager.can?(nil, :read_topics, Topic.first) # true
-manager.can?(user, :read_topics, Topic.first) # true
-manager.can?(user, :read_topics, Topic.last) # false
-manager.can?(user, :read_topics) # false
+manager.can?(current_user, :read_topics, Topic.first) # true
+manager.can?(current_user, :read_topics, Topic.last) # false
+manager.can?(current_user, :read_topics) # false
 manager.can?(nil, :read_topics) # false
 
 manager.add_dynamic_rule(user, :edit_user, User.first)
-manager.can?(user, :edit_user, User) # false
-manager.can?(user, :edit_user, User.first) # true
-manager.can?(user, :edit_user, User.last) # false
-manager.can?(user, :edit_user) # false
+manager.can?(current_user, :edit_user, User) # false
+manager.can?(current_user, :edit_user, User.first) # true
+manager.can?(current_user, :edit_user, User.last) # false
+manager.can?(current_user, :edit_user) # false
 manager.can?(nil, :edit_user) # false
 ```
 

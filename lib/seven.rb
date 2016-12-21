@@ -1,5 +1,9 @@
 require "seven/version"
 
+require "seven/error"
+
 module Seven
-  # Your code goes here...
+  autoload :Manager, 'seven/manager'
+  autoload :Abilities, 'seven/abilities'
 end
+
