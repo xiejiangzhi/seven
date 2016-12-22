@@ -7,7 +7,7 @@ Permission manage center
 Add this line to your application's Gemfile:
 
 ```ruby
-gem 'seven'
+gem 'sevencan'
 ```
 
 And then execute:
@@ -16,7 +16,7 @@ And then execute:
 
 Or install it yourself as:
 
-    $ gem install seven
+    $ gem install sevencan
 
 ## Usage
 
