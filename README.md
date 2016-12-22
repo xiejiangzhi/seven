@@ -143,16 +143,31 @@ manager.can?(nil, :edit_user) # false
 
 ## Rails
 
-### Requires
+### Require methods
 
-* `current_user` method
+* `current_user`: return current user
+* `abilities_manager`: return `Seven::Manager` instance
+* `ability_check_callback`: call the method after check
 
 
 ### ControllerHelpers
 
 ```
 class ApplicationController < ActionController::Base
+  # define `can?` method and `seven_ability_check` methods
+  # define `seven_ability_check_filter` method
+  # `seven_ability_check` call `before_action :seven_ability_check_filter`
   include Seven::Rails::ControllerHelpers
+
+  def abilities_manager
+    $my_abilities_manager
+  end
+
+  def ability_check_callback(allowed, ability, target)
+    # allowed: true or false, allowed is true when can access
+    # ability: checked ability, like :read_topic
+    # target: checked target object
+  end
 end
 ```
 
@@ -163,7 +178,7 @@ class TopicController < ApplicationController
   before_action :find_topic
 
   # if exist @topic, target is @topic, else use Topic
-  ability_check_filter [:@topic, Proc.new { fetch_check_target }, Topic]
+  seven_ability_check [:@topic, Proc.new { fetch_check_target }, Topic]
 
   # auto check current_user allow read_topics of Topic
   def index
@@ -196,13 +211,13 @@ class TopicController < ApplicationController
   before_action :find_topic
 
   # if exist @topic, target is @topic, else use Topic
-  ability_check_filter(
+  seven_ability_check(
     [:@topic, Topic], # default targets
     my_action1: {ability: :custom_ability}, # use default targets
     my_action2: {ability: :custom_ability, target: [:@my_target]}
   )
   # or 
-  # ability_check_filter(
+  # seven_ability_check(
   #   index: {ability: read_my_ability, target: SuperTopic},
   #   my_action1: {ability: :custom_ability1}, # use default targets
   #   my_action2: {ability: :custom_ability2, target: [:@my_target]}
@@ -226,7 +241,40 @@ class TopicController < ApplicationController
 end
 ```
 
-Manual check
+Custom resource name
+
+```
+class TopicController < ApplicationController
+  before_action :find_topic
+
+  seven_ability_check [:@topic, Topic], nil, resource_name: :comment
+
+  # auto check current_user allow read_comments of Topic
+  def index
+  end
+
+  # auto check current_user allow read_comment of @topic
+  def show
+  end
+
+  # Other actions:
+  #  new: create_comment of Topic
+  #  create: create_comment of Topic
+  #  edit: edit_comment of @topic
+  #  update: edit_comment of @topic
+  #  destory: delete_comment of @topic
+
+
+  private
+
+  def find_topic
+    @topic = Topic.find(params[:id])
+  end
+end
+```
+
+
+Manual check, cannot call `ability_check_callback`
 
 ```
 class TopicController < ApplicationController
@@ -246,18 +294,9 @@ class TopicController < ApplicationController
 end
 ```
 
-In View
-
-```
-<% if can?(edit_topic, @topic) %>
-  <%= link_to "edit", "/path/to/edit" %>
-<% end %>
-```
-
-
 ## TODO
 
-* [ ] Rails Helpers
+* [x] Rails Helpers
 * [ ] Dynamic rule
 
 
