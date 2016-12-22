@@ -141,10 +141,124 @@ manager.can?(nil, :edit_user) # false
 ```
 
 
+## Rails
+
+### Requires
+
+* `current_user` method
+
+
+### ControllerHelpers
+
+```
+class ApplicationController < ActionController::Base
+  include Seven::Rails::ControllerHelpers
+end
+```
+
+Default actions
+
+```
+class TopicController < ApplicationController
+  before_action :find_topic
+
+  # if exist @topic, target is @topic, else use Topic
+  ability_check_filter [:@topic, Proc.new { fetch_check_target }, Topic]
+
+  # auto check current_user allow read_topics of Topic
+  def index
+  end
+
+  # auto check current_user allow read_topic of @topic
+  def show
+  end
+
+  # Other actions:
+  #  new: create_topic of Topic
+  #  create: create_topic of Topic
+  #  edit: edit_topic of @topic
+  #  update: edit_topic of @topic
+  #  destory: delete_topic of @topic
+
+
+  private
+
+  def find_topic
+    @topic = Topic.find(params[:id])
+  end
+end
+```
+
+Custom require ability for actions
+
+```
+class TopicController < ApplicationController
+  before_action :find_topic
+
+  # if exist @topic, target is @topic, else use Topic
+  ability_check_filter(
+    [:@topic, Topic], # default targets
+    my_action1: {ability: :custom_ability}, # use default targets
+    my_action2: {ability: :custom_ability, target: [:@my_target]}
+  )
+  # or 
+  # ability_check_filter(
+  #   index: {ability: read_my_ability, target: SuperTopic},
+  #   my_action1: {ability: :custom_ability1}, # use default targets
+  #   my_action2: {ability: :custom_ability2, target: [:@my_target]}
+  # )
+
+  def index
+  end
+
+  def my_action1
+  end
+
+  def my_action2
+  end
+
+
+  private
+
+  def find_topic
+    @topic = Topic.find(params[:id])
+  end
+end
+```
+
+Manual check
+
+```
+class TopicController < ApplicationController
+  before_action :find_topic
+
+  def my_action1
+    raise 'no permission' unless can?(:read_something, @topic)
+    # my codes
+  end
+
+
+  private
+
+  def find_topic
+    @topic = Topic.find(params[:id])
+  end
+end
+```
+
+In View
+
+```
+<% if can?(edit_topic, @topic) %>
+  <%= link_to "edit", "/path/to/edit" %>
+<% end %>
+```
+
+
 ## TODO
 
-* [ ] Dynamic rule
 * [ ] Rails Helpers
+* [ ] Dynamic rule
 
 
 ## Development
