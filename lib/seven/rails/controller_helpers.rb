@@ -34,7 +34,7 @@ module Seven
         target_list.each do |t|
           case t
           when Symbol, String
-            instance = instance_variable_get(t)
+            instance = instance_variable_defined?(t) ? instance_variable_get(t) : nil
             return instance if instance
           when Proc
             result = instance_eval(&t)

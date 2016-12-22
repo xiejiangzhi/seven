@@ -1,6 +1,6 @@
 # Seven
 
-Permission manage center
+Permission manage center, Better `six`
 
 ## Installation
 

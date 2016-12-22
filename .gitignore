@@ -10,3 +10,5 @@
 
 *.swp
 *.gem
+
+/spec/examples.txt
