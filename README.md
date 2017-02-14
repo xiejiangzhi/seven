@@ -1,6 +1,6 @@
 # Seven
 
-Permission manage center, Better `six`
+Permission manage center
 
 ## Installation
 
@@ -177,7 +177,7 @@ Default actions
 class TopicController < ApplicationController
   before_action :find_topic
 
-  # if exist @topic, target is @topic, else use Topic
+  # if exist @topic, target is @topic, else use Proc result or Topic
   seven_ability_check [:@topic, Proc.new { fetch_check_target }, Topic]
 
   # auto check current_user allow read_topics of Topic
