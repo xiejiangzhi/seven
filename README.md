@@ -316,6 +316,30 @@ class TopicController < ApplicationController
 end
 ```
 
+## RSpec Testing
+
+in `spec/rails_helper.rb` or `spec/spec_helper.rb`
+
+```
+require 'seven/rspec'
+```
+
+Write abilities testing
+
+```
+RSpec.describe UserAbilities do
+  it 'should can read topic' do
+    # expect([current_user, target]).to abilities_eql([:read_topic])
+    expect([user, topic]).to abilities_eql([:read_topic])
+  end
+
+  it 'should can manager topic' do
+    expect([admin_user, topic]).to abilities_eql([:read_topic, :edit_topic, :destroy_topic])
+  end
+end
+```
+
+
 ## TODO
 
 * [x] Rails Helpers
