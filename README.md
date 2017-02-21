@@ -23,9 +23,9 @@ Or install it yourself as:
 New manager
 
 ```
-manager = Seven.new # save dynamic abilities to memory store
-manager = Seven.new(store: {redis: Redis.current}) # redis store
-manager = Seven.new(store: {activerecord: UserAbility}) # db store
+manager = Seven::Manager.new # save dynamic abilities to memory store
+manager = Seven::Manager.new(store: {redis: Redis.current}) # redis store
+manager = Seven::Manager.new(store: {activerecord: UserAbility}) # db store
 ```
 
 Define system rules
