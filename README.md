@@ -143,6 +143,28 @@ manager.can?(nil, :edit_user) # false
 
 ## Rails
 
+
+### Init manager
+
+in `config/initializers/seven_abilities.rb`
+
+```
+$abilities_manager = Seven::Manager.new
+Dir[Rails.root.join('app/abilities/**/*.rb')].each {|file| require file }
+```
+
+Define rules in `app/abilities/*.rb`
+
+```
+class UserAbilities
+  include Seven::Abilities
+
+  $abilities_manager.define_rules(User, self)
+
+  # define rules
+end"
+```
+
 ### Require methods
 
 * `current_user`: return current user
