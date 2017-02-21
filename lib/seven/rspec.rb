@@ -1,4 +1,4 @@
-require 'rspec'
+# require 'rspec'
 
 # expect([current_user, target]).to abilities_eql([:a, :b])
 
