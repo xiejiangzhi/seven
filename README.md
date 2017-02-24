@@ -59,6 +59,10 @@ class MyTopicAbilities
     can :review_topic
   end
 
+  abilities Proc.new { current_user.permissions.include?(:topic_manager) } do
+    can_manager_topic
+  end
+
 
   def can_manager_topic
     can :edit_topic, :destroy_topic

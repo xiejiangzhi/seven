@@ -28,10 +28,8 @@ module Seven
       return @abilities if @abilities
       @abilities = []
 
-      self.class.rule_procs.each do |field, scope, rule_proc|
-        if field
-          next if current_user.nil? || !scope.include?(current_user.public_send(field))
-        end
+      self.class.rule_procs.each do |checker, rule_proc|
+        next if checker && (current_user.nil? || !instance_eval(&checker))
         instance_eval(&rule_proc)
       end
 
@@ -54,14 +52,27 @@ module Seven
       # Params:
       #   field: current_user method
       #   scope: run rule proc if Array(scope).include?(current_user#{field})
+      #
+      #   or
+      #
+      #   proc
       def abilities(field = nil, scope = nil, &rule_proc)
-        if field
-          raise Seven::ArgsError, 'Scope cannot be nil' unless scope
-          formatted_scope = scope.is_a?(Array) ? scope : [scope]
+        checker = case field
+        when Proc
+          field
+        when Symbol, String
+          raise Seven::ArgsError, 'Scope cannot be nil' if scope.nil?
+          tmp_scope = scope.is_a?(Array) ? scope : [scope]
+          Proc.new { tmp_scope.include?(current_user.public_send(field)) }
+        when nil
+          nil
+        else
+          raise Seven::ArgsError, "Invalid field '#{field}'" if scope.nil?
         end
 
+
         @rule_procs ||= []
-        @rule_procs << [field ? field.to_sym : nil, formatted_scope, rule_proc]
+        @rule_procs << [checker, rule_proc]
       end
     end
   end
