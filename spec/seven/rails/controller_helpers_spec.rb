@@ -135,7 +135,6 @@ RSpec.describe Seven::Rails::ControllerHelpers do
         expect(ctrl).to receive(:ability_check_callback).with(false, :read_other, nil)
         ctrl.run(:topics, :other)
 
-
         expect(abilities_manager).to receive(:can?) \
           .with(ctrl.current_user, :read_xyz, Topic).and_return(false)
         expect(ctrl).to receive(:ability_check_callback).with(false, :read_xyz, Topic)
@@ -162,6 +161,14 @@ RSpec.describe Seven::Rails::ControllerHelpers do
           .with(ctrl.current_user, :read_proc, 'proc').and_return(false)
         expect(ctrl).to receive(:ability_check_callback).with(false, :read_proc, 'proc')
         ctrl.run(:topics, :proc_target)
+      end
+
+      it 'should check nil if not found target' do
+        my_controller.seven_ability_check([:@asdf, Proc.new { nil }])
+        expect(abilities_manager).to receive(:can?) \
+          .with(ctrl.current_user, :read_topics, nil).and_return(false)
+        expect(ctrl).to receive(:ability_check_callback).with(false, :read_topics, nil)
+        ctrl.run(:topics, :index)
       end
     end
   end
