@@ -50,29 +50,38 @@ module Seven
       attr_reader :rule_procs
 
       # Params:
-      #   field: current_user method
-      #   scope: run rule proc if Array(scope).include?(current_user#{field})
-      #
-      #   or
-      #
-      #   proc
-      def abilities(field = nil, scope = nil, &rule_proc)
-        checker = case field
-        when Proc
-          field
-        when Symbol, String
-          raise Seven::ArgsError, 'Scope cannot be nil' if scope.nil?
-          tmp_scope = scope.is_a?(Array) ? scope : [scope]
-          Proc.new { tmp_scope.include?(current_user.public_send(field)) }
-        when nil
-          nil
-        else
-          raise Seven::ArgsError, "Invalid field '#{field}'" if scope.nil?
-        end
-
-
+      #   options:
+      #     {check: :role, equal: 'admin'}  current_user.role == 'admin'
+      #     {check: :role, in: %w{admin editor}}  %w{admin editor}.include?(current_user.role)
+      #     {pass: :my_filter} call my_filter method
+      #     {pass: Proc.new { ... }} proc.call
+      def abilities(options = nil, &rule_proc)
+        filter = build_seven_abilities_filter(options)
         @rule_procs ||= []
-        @rule_procs << [checker, rule_proc]
+        @rule_procs << [filter, rule_proc]
+      end
+
+      def build_seven_abilities_filter(options)
+        return if options.nil?
+        opts = options.symbolize_keys
+
+        if val = opts[:pass]
+          if val.is_a?(Proc)
+            val
+          else
+            Proc.new { send val }
+          end
+        elsif attr = opts[:check]
+          if list = opts[:in]
+            Proc.new { list.include?(current_user.public_send(attr)) }
+          elsif val = opts[:equal]
+            Proc.new { current_user.public_send(attr) == val }
+          else
+            raise Seven::ArgsError, 'Invalid check definition'
+          end
+        else
+          raise Seven::ArgsError, 'Invalid check definition'
+        end
       end
     end
   end

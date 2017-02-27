@@ -1,5 +1,12 @@
 RSpec.describe Seven::Abilities do
-  let(:cls) { Class.new { include Seven::Abilities } }
+  let(:cls) do
+    Class.new do
+      include Seven::Abilities
+
+      def my_filter
+      end
+    end
+  end
   let(:rule_proc) { Proc.new { } }
 
   describe '.warp_proc' do
@@ -18,9 +25,19 @@ RSpec.describe Seven::Abilities do
       }.to change(cls, :rule_procs).to([[nil, rule_proc]])
     end
 
-    it 'should add rule proc with scope' do
+    it 'should add rule proc with attr value' do
       expect {
-        cls.abilities(:role, [:admin], &rule_proc)
+        cls.abilities(check: :role, equal: :admin, &rule_proc)
+      }.to change { (cls.rule_procs || []).length }.by(1)
+
+      new_rule = cls.rule_procs.first
+      expect(new_rule.first).to be_a(Proc)
+      expect(new_rule.last).to eql(rule_proc)
+    end
+
+    it 'should add rule proc with attr value' do
+      expect {
+        cls.abilities(check: :role, in: [:admin], &rule_proc)
       }.to change { (cls.rule_procs || []).length }.by(1)
 
       new_rule = cls.rule_procs.first
@@ -31,22 +48,32 @@ RSpec.describe Seven::Abilities do
     it 'should add rule proc with proc' do
       p = Proc.new { true }
       expect {
-        cls.abilities(p, &rule_proc)
+        cls.abilities(pass: p, &rule_proc)
       }.to change { (cls.rule_procs || []).length }.by(1)
 
       expect(cls.rule_procs.first).to eql([p, rule_proc])
     end
 
-    it 'should not add rule proc if invalid scope' do
+    it 'should add rule proc with filter name' do
+      expect {
+        cls.abilities(pass: :my_filter, &rule_proc)
+      }.to change { (cls.rule_procs || []).length }.by(1)
+
+      new_rule = cls.rule_procs.first
+      expect(new_rule.first).to be_a(Proc)
+      expect(new_rule.last).to eql(rule_proc)
+    end
+
+    it 'should not add rule proc if invalid options' do
       expect {
         expect {
-          cls.abilities(:role, &rule_proc)
+          cls.abilities(check: 'a', &rule_proc)
         }.to raise_error(Seven::ArgsError)
       }.to_not change(cls, :rule_procs)
 
       expect {
         expect {
-          cls.abilities(:role, nil, &rule_proc)
+          cls.abilities(pass: nil, &rule_proc)
         }.to raise_error(Seven::ArgsError)
       }.to_not change(cls, :rule_procs)
     end
@@ -79,7 +106,7 @@ RSpec.describe Seven::Abilities do
       end
     end
 
-    describe 'use scope rule' do
+    describe 'use attr filter rule' do
       let(:rule_cls) { create_role_rule_class }
 
       it 'should return correct abilities' do
@@ -95,6 +122,14 @@ RSpec.describe Seven::Abilities do
         admin_user.role = :normal
         expect(rule_cls.new(admin_user, normal_topic).abilities.sort).to \
           eql([:read_topics, :create_topic].sort)
+
+        admin_user.role = :reviewer
+        expect(rule_cls.new(admin_user, normal_topic).abilities.sort).to \
+          eql([:read_topics, :create_topic, :edit_topic].sort)
+
+        admin_user.role = :editor
+        expect(rule_cls.new(admin_user, normal_topic).abilities.sort).to \
+          eql([:read_topics, :create_topic, :edit_topic].sort)
       end
 
       it 'should return correct abilities user is nil' do
@@ -118,6 +153,10 @@ RSpec.describe Seven::Abilities do
         admin_user.role = :normal
         expect(rule_cls.new(admin_user, normal_topic).abilities.sort).to \
           eql([:read_topics, :create_topic].sort)
+
+        admin_user.role = :reviewer
+        expect(rule_cls.new(admin_user, normal_topic).abilities.sort).to \
+          eql([:read_topics, :create_topic, :edit_topic].sort)
       end
 
       it 'should return correct abilities user is nil' do

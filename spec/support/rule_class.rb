@@ -20,7 +20,11 @@ module Support
       Class.new do
         include Seven::Abilities
 
-        abilities :role, [:admin] do
+        abilities check: :role, in: [:reviewer, :editor] do
+          can :edit_topic
+        end
+
+        abilities check: :role, equal: :admin do
           can_manage
         end
 
@@ -47,8 +51,12 @@ module Support
       Class.new do
         include Seven::Abilities
 
-        abilities Proc.new{ current_user.role.to_sym == :admin } do
+        abilities pass: Proc.new{ current_user.role.to_sym == :admin } do
           can_manage
+        end
+
+        abilities pass: :my_filter do
+          can :edit_topic
         end
 
         abilities do
@@ -66,6 +74,10 @@ module Support
 
         def cannot_manage
           cannot :edit_topic, :destroy_topic
+        end
+
+        def my_filter
+          current_user.role.to_sym == :reviewer
         end
       end
     end

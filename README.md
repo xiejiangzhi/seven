@@ -51,16 +51,20 @@ class MyTopicAbilities
   end
 
   # if [:admin, :editor].include?(current_user.role)
-  abilities :role, [:admin, :editor] do
+  abilities check: :role, in: [:admin, :editor] do
     can_manager_topic
   end
 
-  abilities :role, [:reviewer] do
+  # current_user.role eqlual :reviewer
+  abilities check: :role, equal: :reviewer do
     can :review_topic
   end
 
-  abilities Proc.new { current_user.permissions.include?(:topic_manager) } do
+  abilities pass: Proc.new { current_user.permissions.include?(:topic_manager) } do
     can_manager_topic
+  end
+
+  abilities pass: :editor_filter do
   end
 
 
@@ -70,6 +74,10 @@ class MyTopicAbilities
 
   def cannot_manager_topic
     cannot :edit_topic, :destroy_topic
+  end
+
+  def editor_filter
+    current_user.permissions.include?(:topic_editor)
   end
 end
 
@@ -300,7 +308,7 @@ end
 ```
 
 
-Manual check, cannot call `ability_check_callback`
+Manual check, not call `ability_check_callback`
 
 ```
 class TopicController < ApplicationController
