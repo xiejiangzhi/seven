@@ -189,8 +189,8 @@ end"
 ```
 class ApplicationController < ActionController::Base
   # define `can?` method and `seven_ability_check` methods
-  # define `seven_ability_check` method
-  # `seven_ability_check` call `before_action :ability_check_callback`
+  # define `seven_ability_check_filter` method
+  # `seven_ability_check` call `before_action :seven_ability_check_filter`
   include Seven::Rails::ControllerHelpers
 
   def abilities_manager
@@ -318,6 +318,28 @@ class TopicController < ApplicationController
   def my_action1
     raise 'no permission' unless can?(:read_something, @topic)
     # my codes
+  end
+
+
+  private
+
+  def find_topic
+    @topic = Topic.find(params[:id])
+  end
+end
+```
+
+Skip some actions
+
+```
+class TopicController < ApplicationController
+  before_action :find_topic
+  skip_before_filter :seven_ability_check_filter, only: :index
+
+  def index
+    if page_no > 1
+      ability_check_callback(can?(:read_something, @topic), :read_something, @topic)
+    end
   end
 
 
