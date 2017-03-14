@@ -28,7 +28,7 @@ manager = Seven::Manager.new(store: {redis: Redis.current}) # redis store
 manager = Seven::Manager.new(store: {activerecord: UserAbility}) # db store
 ```
 
-Define system rules
+Define rules
 
 ```
 # all objects, global rules
@@ -101,7 +101,7 @@ manager.del_dynamic_rules(user, :edit_user)
 
 Check abilities
 
-Target is nil
+No target
 
 ```
 manager.define_rules(Object) { can :read_topics }
@@ -116,7 +116,7 @@ manager.can?(current_user, :edit_user) # true
 manager.can?(nil, :edit_user) # true
 ```
 
-Specify target class
+Use class
 
 ```
 manager.define_rules(Topic) { can :read_topics }
@@ -133,7 +133,7 @@ manager.can?(current_user, :edit_user) # false
 manager.can?(nil, :edit_user) # false
 ```
 
-Specify instance
+Use instance
 
 ```
 manager.define_rules(Topic.first) { can :read_topics }
@@ -189,8 +189,8 @@ end"
 ```
 class ApplicationController < ActionController::Base
   # define `can?` method and `seven_ability_check` methods
-  # define `seven_ability_check_filter` method
-  # `seven_ability_check` call `before_action :seven_ability_check_filter`
+  # define `seven_ability_check` method
+  # `seven_ability_check` call `before_action :ability_check_callback`
   include Seven::Rails::ControllerHelpers
 
   def abilities_manager
@@ -201,6 +201,7 @@ class ApplicationController < ActionController::Base
     # allowed: true or false, allowed is true when can access
     # ability: checked ability, like :read_topic
     # target: checked target object
+    redirect_to root_path notice: 'Permission denied' unless allowed
   end
 end
 ```
