@@ -2,6 +2,9 @@
 
 Define and verify Permissions.
 
+[![Build Status](https://travis-ci.org/xiejiangzhi/seven.svg?branch=master)](https://travis-ci.org/xiejiangzhi/seven)
+[![Gem Version](https://badge.fury.io/rb/sevencan.svg)](https://badge.fury.io/rb/sevencan)
+
 ## Installation
 
 Add this line to your application's Gemfile:
