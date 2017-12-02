@@ -1,6 +1,6 @@
 # Seven
 
-Permission manage center
+Define and verify Permissions.
 
 ## Installation
 
@@ -20,29 +20,39 @@ Or install it yourself as:
 
 ## Usage
 
-New manager
+### Create your manager
+
+```
+$abilities_manager = Seven::Manager.new
+```
+
+Use your store
 
 ```
 manager = Seven::Manager.new # save dynamic abilities to memory store
-manager = Seven::Manager.new(store: {redis: Redis.current}) # redis store
-manager = Seven::Manager.new(store: {activerecord: UserAbility}) # db store
+# or
+manager = Seven::Manager.new(store: {redis: Redis.current}) # save dynamic abilities to Redis
+# or
+manager = Seven::Manager.new(store: {activerecord: UserAbility}) # save dynamic abilities to DB 
 ```
 
-Define rules
+### Define your rules
+
+On Rails, we can save these rules as app/abilities/*_abilities.rb
+
+A simple example
 
 ```
-# all objects, global rules
-manager.define_rules(Object) do
-  can :read_home, :read_topics
-end
-
 # Topic and Topic instances
-class MyTopicAbilities
+class TopicAbilities
   include Seven::Abilities
 
-  # Instance methods:
-  #   current_user:
-  #   target:
+  # it has some instance methods:
+  #   current_user: a user instance of nil
+  #   target: verify current_user permissions with this target
+
+
+  # we will define some abilities for any user(user instance or nil) in this block
   abilities do
     can(:read_topic)
     can_manager_topic if target_topic.user_id == current_user.id
@@ -50,23 +60,26 @@ class MyTopicAbilities
     cannot_manager_topic if target_topic.is_lock
   end
 
-  # if [:admin, :editor].include?(current_user.role)
-  abilities check: :role, in: [:admin, :editor] do
+  # if current user(current_user isn't nil) and %i{admin editor}.include?(current_user.role)
+  # we will define some abilities for the user
+  abilities check: :role, in: %i{admin editor} do
     can_manager_topic
   end
 
-  # current_user.role eqlual :reviewer
+  # current_user.role is :reviewer
   abilities check: :role, equal: :reviewer do
     can :review_topic
   end
 
-  abilities pass: Proc.new { current_user.permissions.include?(:topic_manager) } do
+  # Of course, you also can use your rule.
+  # For example, we will give current_user some abilities if our proc doesn't return a false or nil value
+  abilities pass: Proc.new { current_user && target.user_id.nil? } do
     can_manager_topic
   end
 
-  abilities pass: :editor_filter do
+  # And you can move that proc to a instance method
+  abilities pass: :my_filter do
   end
-
 
   def can_manager_topic
     can :edit_topic, :destroy_topic
@@ -76,22 +89,36 @@ class MyTopicAbilities
     cannot :edit_topic, :destroy_topic
   end
 
-  def editor_filter
-    current_user.permissions.include?(:topic_editor)
+  def my_filter
+    current_user && target.user_id.nil?
   end
 end
 
-manager.define_rules(Topic, MyTopicAbilities)
+# Last, we will use TopicAbilities for Topic and all Topic instances
+# It will verify permissions use TopicAbilities if that target is a Topic or instance of Topic
+$abilities_manager.define_rules(Topic, TopicAbilities)
+```
 
-# with block
+For all objects
+
+```
+# for all objects, they're global rules
+$abilities_manager.define_rules(Object, YourAbilities)
+```
+
+Use a block to define some abilities 
+
+```
 manager.define_rules(User) do
   can(:read_user)
-  can(:edit_user) if target.id == current_user.id
-  can(:destroy_user) if current_user.is_admin?
+  if current_user
+    can(:edit_user) if target.id == current_user.id
+    can(:destroy_user) if current_user.is_admin?
+  end
 end
 ```
 
-Manage dynamic rules
+Define some dynamic rules
 
 ```
 manager.add_dynamic_rule(user, :edit_user)
@@ -99,16 +126,16 @@ manager.list_dynamic_rules(user)
 manager.del_dynamic_rules(user, :edit_user)
 ```
 
-Check abilities
+### Verify your abilities
 
 No target
 
 ```
 manager.define_rules(Object) { can :read_topics }
-manager.can?(current_user, :read_topics) # true
-manager.can?(nil, :read_topics) # true
-manager.can?(current_user, :read_user) # false
+manager.can?(current_user, :read_topics, nil) # true, target is nil
+manager.can?(nil, :read_topics) # true, anyone can read_topics
 
+manager.can?(current_user, :read_user) # false, we didn't define this abilities
 manager.can?(current_user, :edit_user) # false
 
 manager.add_dynamic_rule(user, :edit_user)
@@ -116,15 +143,15 @@ manager.can?(current_user, :edit_user) # true
 manager.can?(nil, :edit_user) # true
 ```
 
-Use class
+Verify abilities for a class and its instances
 
 ```
 manager.define_rules(Topic) { can :read_topics }
-manager.can?(nil, :read_topics, Topic) # true
-manager.can?(nil, :read_topics, Topic.first) # true
+manager.can?(nil, :read_topics, Topic) # true, for Topic class
+manager.can?(nil, :read_topics, Topic.first) # true, for instance of Topic
 manager.can?(current_user, :read_topics, Topic.first) # true
 manager.can?(current_user, :read_topics) # false
-manager.can?(nil, :read_topics) # false
+manager.can?(nil, :read_topics) # false, it's target is nil, it isn't a topic
 
 manager.add_dynamic_rule(user, :edit_user, User)
 manager.can?(current_user, :edit_user, User) # true
@@ -133,7 +160,7 @@ manager.can?(current_user, :edit_user) # false
 manager.can?(nil, :edit_user) # false
 ```
 
-Use instance
+Define and verify abilities for a instance
 
 ```
 manager.define_rules(Topic.first) { can :read_topics }
@@ -155,81 +182,93 @@ manager.can?(nil, :edit_user) # false
 
 ## Rails
 
-
-### Init manager
+### Init your manager
 
 in `config/initializers/seven_abilities.rb`
 
 ```
 $abilities_manager = Seven::Manager.new
-Dir[Rails.root.join('app/abilities/**/*.rb')].each {|file| require file }
+Dir[Rails.root.join('app/abilities/**/*.rb')].each do |file|
+  require file
+  filename = File.basename(file).split('.').first
+  abilities_name = filename.camelize
+  resource_name = abilities_name.gsub(/Abilities$/, '')
+  $abilities_manager.define_rules(resource_name.constantize, abilities_name.constantize)
+end
 ```
 
-Define rules in `app/abilities/*.rb`
+Define some rules in `app/abilities/*.rb`
 
 ```
 class UserAbilities
   include Seven::Abilities
 
-  $abilities_manager.define_rules(User, self)
-
-  # define rules
+  # define some rules
 end"
 ```
 
-### Require methods
-
-* `current_user`: return current user
-* `abilities_manager`: return `Seven::Manager` instance
-* `ability_check_callback`: call the method after check
 
 
 ### ControllerHelpers
 
+We need these methods of controller
+
+* `current_user`: return current user
+* `abilities_manager`: return `Seven::Manager` instance
+* `ability_check_callback`: call the method after verifying
+
+
+For example:
+
 ```
 class ApplicationController < ActionController::Base
-  # define `can?` method and `seven_ability_check` methods
-  # define `seven_ability_check_filter` method
-  # `seven_ability_check` call `before_action :seven_ability_check_filter`
+  # when you include `Seven::Rails::ControllerHelpers` module, it will do something below
+  #   define `can?` instance method and `seven_ability_check` methods for your controller
+  #   define `seven_ability_check_filter` instance method, it's callback of before_action for Seven 
+  #   define `seven_ability_check` class methods, it will call `before_action :seven_ability_check_filter` and store some your options
   include Seven::Rails::ControllerHelpers
 
   def abilities_manager
-    $my_abilities_manager
+    $abilities_manager
   end
 
-  def ability_check_callback(allowed, ability, target)
-    # allowed: true or false, allowed is true when can access
-    # ability: checked ability, like :read_topic
-    # target: checked target object
-    redirect_to root_path notice: 'Permission denied' unless allowed
+  def ability_check_callback(is_allowed, ability, target)
+    # is_allowed: true or false, is_allowed is true when user can access this action
+    # ability: ability of this action, like :read_topic
+    # target: resource object of this action
+    redirect_to root_path notice: 'Permission denied' unless is_allowed
   end
 end
 ```
 
-Default actions
+Verify permissions for default actions, we will get a ability name according to controller name.
+
+Some mapping examples: 
+
+* TopicController#index =>  :read_topics
+* TopicController#show =>  :read_topic
+* UserController#new =>  :create_user
+* UserController#create =>  :create_user
+* UserController#edit =>  :edit_user
+* UserController#update =>  :edit_user
+* UserController#destory =>  :delete_user
+
 
 ```
 class TopicController < ApplicationController
   before_action :find_topic
 
-  # if exist @topic, target is @topic, else use Proc result or Topic
-  seven_ability_check [:@topic, Proc.new { fetch_check_target }, Topic]
+  # if exists @topic, target is @topic, else use the result of proc, use Topic if the proc return nil 
+  seven_ability_check [:@topic, Proc.new { nil }, Topic]
 
-  # auto check current_user allow read_topics of Topic
+  # Seven will automitically checks current_user has read_topics of Topic
+  # We have no @topic and proc is nil, the Topic is our target
   def index
   end
 
-  # auto check current_user allow read_topic of @topic
+  # check current_user can read_topic of @topic
   def show
   end
-
-  # Other actions:
-  #  new: create_topic of Topic
-  #  create: create_topic of Topic
-  #  edit: edit_topic of @topic
-  #  update: edit_topic of @topic
-  #  destory: delete_topic of @topic
-
 
   private
 
@@ -239,7 +278,7 @@ class TopicController < ApplicationController
 end
 ```
 
-Custom require ability for actions
+Set a customized ability for actions
 
 ```
 class TopicController < ApplicationController
@@ -248,13 +287,13 @@ class TopicController < ApplicationController
   # if exist @topic, target is @topic, else use Topic
   seven_ability_check(
     [:@topic, Topic], # default targets
-    my_action1: {ability: :custom_ability}, # use default targets
-    my_action2: {ability: :custom_ability, target: [:@my_target]}
+    my_action1: {ability: :custom_ability}, # check :custom_ability and use default targets
+    my_action2: {ability: :custom_ability, target: [:@my_target]} # check :custom_ability and use :@my_target
   )
   # or 
   # seven_ability_check(
-  #   index: {ability: read_my_ability, target: SuperTopic},
-  #   my_action1: {ability: :custom_ability1}, # use default targets
+  #   index: {ability: :read_my_ability, target: SuperTopic},
+  #   my_action1: {ability: :custom_ability1}, 
   #   my_action2: {ability: :custom_ability2, target: [:@my_target]}
   # )
 
@@ -276,7 +315,7 @@ class TopicController < ApplicationController
 end
 ```
 
-Custom resource name
+Use a customize resource name, we will get ability according to this suffix
 
 ```
 class TopicController < ApplicationController
@@ -309,11 +348,12 @@ end
 ```
 
 
-Manual check, not call `ability_check_callback`
+Manually check, don't call `ability_check_callback`
 
 ```
 class TopicController < ApplicationController
   before_action :find_topic
+  skip_before_action :seven_ability_check_filter
 
   def my_action1
     raise 'no permission' unless can?(:read_something, @topic)
@@ -359,7 +399,7 @@ in `spec/rails_helper.rb` or `spec/spec_helper.rb`
 require 'seven/rspec'
 ```
 
-Write abilities testing
+Write some abilities testing
 
 ```
 RSpec.describe UserAbilities do
@@ -389,7 +429,7 @@ To install this gem onto your local machine, run `bundle exec rake install`. To 
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/seven. This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the [Contributor Covenant](contributor-covenant.org) code of conduct.
+Bug reports and pull requests are welcome on GitHub at https://github.com/xiejiangzhi/seven. This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the [Contributor Covenant](contributor-covenant.org) code of conduct.
 
 
 ## License
