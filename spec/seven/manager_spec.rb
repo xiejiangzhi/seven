@@ -25,11 +25,11 @@ RSpec.describe Seven::Manager do
     end
 
     describe 'with proc' do
-      it 'should add rules with warpped proc' do
+      it 'should add rules with wrapped proc' do
         p = Proc.new { 'hello' }
         cls = Class.new { include Seven::Abilities }
 
-        expect(Seven::Abilities).to receive(:warp_proc).with(p).and_return(cls)
+        expect(Seven::Abilities).to receive(:wrap_proc).with(p).and_return(cls)
         manager.define_rules(User, &p)
         expect(manager.rules).to eql([[User, cls]])
       end

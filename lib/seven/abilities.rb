@@ -1,7 +1,7 @@
 module Seven
   module Abilities
     class << self
-      def warp_proc(rule_proc)
+      def wrap_proc(rule_proc)
         return unless rule_proc
 
         Class.new do
@@ -41,8 +41,8 @@ module Seven
     end
 
     def cannot(*some_abilities)
-      syn_abilities = some_abilities.map(&:to_sym)
-      @abilities.delete_if {|ability| syn_abilities.include?(ability) }
+      symtax_abilities = some_abilities.map(&:to_sym)
+      @abilities.delete_if {|ability| symtax_abilities.include?(ability) }
     end
 
 

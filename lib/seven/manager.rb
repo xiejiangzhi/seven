@@ -7,7 +7,7 @@ module Seven
     end
 
     def define_rules(matcher, rule_class = nil, &rule_proc)
-      rule_class ||= Seven::Abilities.warp_proc(rule_proc)
+      rule_class ||= Seven::Abilities.wrap_proc(rule_proc)
 
       if valid_rule_class?(rule_class)
         @rules << [matcher, rule_class]

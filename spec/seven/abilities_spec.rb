@@ -9,9 +9,9 @@ RSpec.describe Seven::Abilities do
   end
   let(:rule_proc) { Proc.new { } }
 
-  describe '.warp_proc' do
+  describe '.wrap_proc' do
     it 'should return abilities class' do
-      cls = Seven::Abilities.warp_proc(rule_proc)
+      cls = Seven::Abilities.wrap_proc(rule_proc)
       expect(cls).to be_a(Class)
       expect(cls.included_modules).to be_include(Seven::Abilities)
       expect(cls.rule_procs).to eql([[nil, rule_proc]])

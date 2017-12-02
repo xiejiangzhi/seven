@@ -29,7 +29,7 @@ Or install it yourself as:
 $abilities_manager = Seven::Manager.new
 ```
 
-Use your store
+Use your store(TODO)
 
 ```
 manager = Seven::Manager.new # save dynamic abilities to memory store
@@ -121,7 +121,7 @@ manager.define_rules(User) do
 end
 ```
 
-Define some dynamic rules
+Define some dynamic rules(TODO)
 
 ```
 manager.add_dynamic_rule(user, :edit_user)
@@ -141,6 +141,7 @@ manager.can?(nil, :read_topics) # true, anyone can read_topics
 manager.can?(current_user, :read_user) # false, we didn't define this abilities
 manager.can?(current_user, :edit_user) # false
 
+# TODO
 manager.add_dynamic_rule(user, :edit_user)
 manager.can?(current_user, :edit_user) # true
 manager.can?(nil, :edit_user) # true
@@ -156,6 +157,7 @@ manager.can?(current_user, :read_topics, Topic.first) # true
 manager.can?(current_user, :read_topics) # false
 manager.can?(nil, :read_topics) # false, it's target is nil, it isn't a topic
 
+# TODO
 manager.add_dynamic_rule(user, :edit_user, User)
 manager.can?(current_user, :edit_user, User) # true
 manager.can?(current_user, :edit_user, User.first) # true
@@ -174,6 +176,7 @@ manager.can?(current_user, :read_topics, Topic.last) # false
 manager.can?(current_user, :read_topics) # false
 manager.can?(nil, :read_topics) # false
 
+# TODO
 manager.add_dynamic_rule(user, :edit_user, User.first)
 manager.can?(current_user, :edit_user, User) # false
 manager.can?(current_user, :edit_user, User.first) # true
