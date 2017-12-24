@@ -1,9 +1,13 @@
 module Seven
   class Manager
-    attr_reader :rules
+    attr_reader :rules, :store
 
-    def initialize
+    # Params:
+    #   store: hash or your store, the store requires get(user_id) and set(user_id, ability, status) methods
+    #           get(user_id) should return a hash of abilities {${ability}: ${true || false}}
+    def initialize(store: {})
       @rules = []
+      @store = fetch_store(store)
     end
 
     def define_rules(matcher, rule_class = nil, &rule_proc)
@@ -25,7 +29,13 @@ module Seven
       # [A, B, Object].min # => B
       # find last class
       rule_class = matched_rules.min_by(&:first).last
-      rule_class.new(current_user, target).abilities.include?(ability.to_sym)
+      abilities = rule_class.new(current_user, target).abilities
+
+      # dynamic abilities
+      store.list(current_user).each do |new_ability, is_allowed|
+        is_allowed ? (abilities << new_ability) : abilities.delete(new_ability)
+      end
+      abilities.include?(ability.to_sym)
     end
 
 
@@ -34,6 +44,24 @@ module Seven
     def valid_rule_class?(rule_class)
       return false unless rule_class && rule_class.is_a?(Class)
       rule_class.included_modules.include?(Seven::Abilities)
+    end
+
+    def fetch_store(store_options)
+      unless store_options.is_a?(Hash) || store_options.nil?
+        if store_options.respond_to?(:list)
+          return store_options
+        else
+          raise "Invalid store: #{store_options.inspect}, a store should defined #list method"
+        end
+      end
+
+      opts = (store_options || {}).symbolize_keys
+
+      if opts[:redis]
+        RedisStore.new(opts)
+      else
+        MemoryStore.new
+      end
     end
   end
 end

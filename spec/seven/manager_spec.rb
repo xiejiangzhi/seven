@@ -1,3 +1,5 @@
+require 'redis'
+
 RSpec.describe Seven::Manager do
   let(:user1) { User.new(role: :admin) }
   let(:user2) { User.new(role: :normal) }
@@ -61,12 +63,13 @@ RSpec.describe Seven::Manager do
       expect(rule_cls).to receive(:new).with(user, Topic).and_return(rule_instance)
       manager.can?(user, :read_home, Topic)
 
-      expect(rule_cls).to receive(:new).with(123, Topic).and_return(rule_instance)
-      manager.can?(123, :read_home, Topic)
+      user = double('user', id: 123)
+      expect(rule_cls).to receive(:new).with(user, Topic).and_return(rule_instance)
+      manager.can?(user, :read_home, Topic)
 
       rule_cls = manager.rules.find {|m, rc| m == Object }.last
-      expect(rule_cls).to receive(:new).with(123, nil).and_return(rule_instance)
-      manager.can?(123, :read_home)
+      expect(rule_cls).to receive(:new).with(user, nil).and_return(rule_instance)
+      manager.can?(user, :read_home)
     end
 
     it 'should can read_home' do
@@ -89,15 +92,36 @@ RSpec.describe Seven::Manager do
       expect(manager.can?(user, :read_topic, ChildTopic.new)).to eql(false)
       expect(manager.can?(user, :read_child_topic, ChildTopic)).to eql(true)
     end
+
+    it 'should support append dynamic abilities' do
+      manager.store.set(user, :edit_topic, true)
+      manager.store.set(user, :xxx_topic, true)
+      expect(manager.can?(user, :edit_topic, topic1)).to eql(true)
+      expect(manager.can?(user, :xxx_topic, Topic)).to eql(true)
+    end
+
+    it 'should support remove dynamic abilities' do
+      manager.store.set(user, :edit_topic, false)
+      manager.store.set(user, :xxx_topic, false)
+      expect(manager.can?(user, :edit_topic, topic1)).to eql(false)
+      expect(manager.can?(user, :xxx_topic, Topic)).to eql(false)
+    end
   end
 
-  describe '#add_dynamic_rule' do
-  end
+  describe '#store' do
+    it 'should create a memory store if not found a valid store' do
+      expect(manager.store).to be_a(Seven::MemoryStore)
+      expect(Seven::Manager.new(store: {foo: :bar}).store).to be_a(Seven::MemoryStore)
+    end
 
-  describe '#del_dynamic_rule' do
-  end
+    it 'should create a redis store if give a redis client' do
+      expect(Seven::Manager.new(store: {redis: Redis.current}).store).to be_a(Seven::RedisStore)
+    end
 
-  describe '#list_dynamic_rules' do
+    it 'should use customized store if give store' do
+      fake_store = Struct.new(:list).new
+      expect(Seven::Manager.new(store: fake_store).store).to eql(fake_store)
+    end
   end
 end
 

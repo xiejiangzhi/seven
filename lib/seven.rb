@@ -9,5 +9,8 @@ module Seven
   autoload :Manager, 'seven/manager'
   autoload :Abilities, 'seven/abilities'
   autoload :Rails, 'seven/rails'
+
+  autoload :MemoryStore, 'seven/memory_store'
+  autoload :RedisStore, 'seven/redis_store'
 end
 

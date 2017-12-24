@@ -21,6 +21,7 @@ Or install it yourself as:
 
     $ gem install sevencan
 
+
 ## Usage
 
 ### Create your manager
@@ -29,15 +30,8 @@ Or install it yourself as:
 $abilities_manager = Seven::Manager.new
 ```
 
-Use your store(TODO)
+You can put it to `config/initializers/abilities.rb` if you on Rails
 
-```
-manager = Seven::Manager.new # save dynamic abilities to memory store
-# or
-manager = Seven::Manager.new(store: {redis: Redis.current}) # save dynamic abilities to Redis
-# or
-manager = Seven::Manager.new(store: {activerecord: UserAbility}) # save dynamic abilities to DB 
-```
 
 ### Define your rules
 
@@ -46,20 +40,53 @@ On Rails, we can save these rules as app/abilities/*_abilities.rb
 A simple example
 
 ```
-# Topic and Topic instances
 class TopicAbilities
   include Seven::Abilities
 
   # it has some instance methods:
   #   current_user: a user instance of nil
-  #   target: verify current_user permissions with this target
+  #   target: verify current_user permissions with this target. It's a Topic or a instance of Topic here
 
+
+  # if target if Topic or a instance of Topic, we will use this class to verify ability
+  $abilities_manager.define_rules(Topic, TopicAbilities)
+
+  # anyone can read list of topics(index action), non-login user also can read it
+  abilities do
+    can :read_topics
+  end
+
+  # define some abilities if the user logined
+  abilities pass: Proc.new { current_user } do
+    # user can read show page and create a new topic.(show, new and create action)
+    can :read_topic, :create_topic
+
+    subject = target.is_a?(Topic) ? Topic.new : target # Maybe the target is a Topic class
+    # user can edit and destroy own topic.(edit, update and destroy action)
+    can :edit_topic, :delete_topic if subject.user_id == current_user.id
+  end
+
+  # define some abilities if current_user is admin. `%w{admin}.include?(current_user.role)`
+  abilities check: :role, in: %w{admin} do
+    # admin can edit and delete all topics
+    can :edit_topic, :delete_topic
+  end
+end
+```
+
+You also can write saome complex rules
+
+```
+# Topic and Topic instances
+class TopicAbilities
+  include Seven::Abilities
+
+  $abilities_manager.define_rules(Topic, TopicAbilities)
 
   # we will define some abilities for any user(user instance or nil) in this block
   abilities do
     can(:read_topic)
     can_manager_topic if target_topic.user_id == current_user.id
-
     cannot_manager_topic if target_topic.is_lock
   end
 
@@ -96,13 +123,9 @@ class TopicAbilities
     current_user && target.user_id.nil?
   end
 end
-
-# Last, we will use TopicAbilities for Topic and all Topic instances
-# It will verify permissions use TopicAbilities if that target is a Topic or instance of Topic
-$abilities_manager.define_rules(Topic, TopicAbilities)
 ```
 
-For all objects
+You can define some abilities for all objects
 
 ```
 # for all objects, they're global rules
@@ -112,7 +135,7 @@ $abilities_manager.define_rules(Object, YourAbilities)
 Use a block to define some abilities 
 
 ```
-manager.define_rules(User) do
+$abilities_manager.define_rules(User) do
   can(:read_user)
   if current_user
     can(:edit_user) if target.id == current_user.id
@@ -121,15 +144,9 @@ manager.define_rules(User) do
 end
 ```
 
-Define some dynamic rules(TODO)
 
-```
-manager.add_dynamic_rule(user, :edit_user)
-manager.list_dynamic_rules(user)
-manager.del_dynamic_rules(user, :edit_user)
-```
 
-### Verify your abilities
+### Verify user abilities
 
 No target
 
@@ -141,13 +158,12 @@ manager.can?(nil, :read_topics) # true, anyone can read_topics
 manager.can?(current_user, :read_user) # false, we didn't define this abilities
 manager.can?(current_user, :edit_user) # false
 
-# TODO
-manager.add_dynamic_rule(user, :edit_user)
+manager.store.add(user.id, :edit_user, true)
 manager.can?(current_user, :edit_user) # true
 manager.can?(nil, :edit_user) # true
 ```
 
-Verify abilities for a class and its instances
+Verify abilities for a class or its instances
 
 ```
 manager.define_rules(Topic) { can :read_topics }
@@ -157,15 +173,14 @@ manager.can?(current_user, :read_topics, Topic.first) # true
 manager.can?(current_user, :read_topics) # false
 manager.can?(nil, :read_topics) # false, it's target is nil, it isn't a topic
 
-# TODO
-manager.add_dynamic_rule(user, :edit_user, User)
+manager.store.add(user.id, :edit_user, true)
 manager.can?(current_user, :edit_user, User) # true
 manager.can?(current_user, :edit_user, User.first) # true
-manager.can?(current_user, :edit_user) # false
+manager.can?(current_user, :edit_user) # true
 manager.can?(nil, :edit_user) # false
 ```
 
-Define and verify abilities for a instance
+Define and verify abilities for a instance(TODO)
 
 ```
 manager.define_rules(Topic.first) { can :read_topics }
@@ -175,14 +190,6 @@ manager.can?(current_user, :read_topics, Topic.first) # true
 manager.can?(current_user, :read_topics, Topic.last) # false
 manager.can?(current_user, :read_topics) # false
 manager.can?(nil, :read_topics) # false
-
-# TODO
-manager.add_dynamic_rule(user, :edit_user, User.first)
-manager.can?(current_user, :edit_user, User) # false
-manager.can?(current_user, :edit_user, User.first) # true
-manager.can?(current_user, :edit_user, User.last) # false
-manager.can?(current_user, :edit_user) # false
-manager.can?(nil, :edit_user) # false
 ```
 
 
@@ -194,34 +201,29 @@ in `config/initializers/seven_abilities.rb`
 
 ```
 $abilities_manager = Seven::Manager.new
-Dir[Rails.root.join('app/abilities/**/*.rb')].each do |file|
-  require file
-  filename = File.basename(file).split('.').first
-  abilities_name = filename.camelize
-  resource_name = abilities_name.gsub(/Abilities$/, '')
-  $abilities_manager.define_rules(resource_name.constantize, abilities_name.constantize)
-end
+Dir[Rails.root.join('app/abilities/**/*.rb')].each { |file| require file }
 ```
 
 Define some rules in `app/abilities/*.rb`
 
 ```
-class UserAbilities
+class MyAbilities
   include Seven::Abilities
+
+  $abilities_manager.define_rules(MyObject, MyAbilities)
 
   # define some rules
 end"
 ```
 
 
-
 ### ControllerHelpers
 
-We need these methods of controller
+We need these methods of controller to check user ability
 
-* `current_user`: return current user
-* `abilities_manager`: return `Seven::Manager` instance
-* `ability_check_callback`: call the method after verifying
+* `current_user`: It is MyAbilities#current_user
+* `abilities_manager`: You need return a instance of `Seven::Manager`
+* `ability_check_callback`: We will call it after verifying
 
 
 For example:
@@ -257,7 +259,7 @@ Some mapping examples:
 * UserController#create =>  :create_user
 * UserController#edit =>  :edit_user
 * UserController#update =>  :edit_user
-* UserController#destory =>  :delete_user
+* UserController#destroy =>  :delete_user
 
 
 ```
@@ -342,7 +344,7 @@ class TopicController < ApplicationController
   #  create: create_comment of Topic
   #  edit: edit_comment of @topic
   #  update: edit_comment of @topic
-  #  destory: delete_comment of @topic
+  #  destroy: delete_comment of @topic
 
 
   private
@@ -397,6 +399,53 @@ class TopicController < ApplicationController
 end
 ```
 
+## Dynamic abilities
+
+### Store
+
+```
+manager = Seven::Manager.new # read/write dynamic abilities from memory store
+# or
+manager = Seven::Manager.new(store: {redis: Redis.current}) # read/write dynamic abilities from Redis
+# or
+manager = Seven::Manager.new(store: MyStore.new) # read/write from your store, Seven just access MyStore#list methods
+```
+
+### Create your store
+
+```
+# columns: user_id: integer, ability: string, status: boolean
+class Ability < ActiveRecord::Base
+  def self.list(user)
+    where(user_id: user.id).each_with_object({}) do |record, result|
+      result[record.ability.to_sym] = record.status # true or false
+    end
+  end
+end
+
+Seven::Manager.new(store: Ability)
+
+# then, you can add some abilities for a user:
+Ability.create(user: user, ability: :read_user, status: true)
+```
+
+
+### Define some dynamic rules for system store
+
+```
+$abilities_manager.store.add(user.id, :edit_user, true)
+$abilities_manager.store.add(user.id, :create_user, false)
+$abilities_manager.store.list(user.id) # {edit_user: true, create_user: false}
+
+$abilities_manager.can?(user, :create_user, nil) #  false
+$abilities_manager.can?(user, :edit_user, nil) #  true
+
+$abilities_manager.store.del(user.id, :edit_user)
+$abilities_manager.store.list(user.id) # {create_user: false}
+```
+
+
+
 ## RSpec Testing
 
 in `spec/rails_helper.rb` or `spec/spec_helper.rb`
@@ -421,10 +470,11 @@ end
 ```
 
 
+
+
 ## TODO
 
-* [x] Rails Helpers
-* [ ] Dynamic rule
+* [ ] Dynamic rule for a record
 
 
 ## Development
