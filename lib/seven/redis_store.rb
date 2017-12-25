@@ -1,5 +1,3 @@
-require 'redis'
-
 class Seven::RedisStore
   def initialize(redis_opts)
     opts = redis_opts.symbolize_keys
