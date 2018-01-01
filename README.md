@@ -411,15 +411,56 @@ manager = Seven::Manager.new(store: {redis: Redis.current}) # read/write dynamic
 manager = Seven::Manager.new(store: MyStore.new) # read/write from your store, Seven just access MyStore#list methods
 ```
 
+
+### Define some dynamic rules for system store
+
+```
+$abilities_manager.store.add(user, :edit_user, true)
+$abilities_manager.store.add(user, :create_user, false)
+$abilities_manager.store.add(user, :read_topic, true, Topic)
+$abilities_manager.store.add(user, :edit_topic, true, topic1)
+
+$abilities_manager.store.list(user)         # {edit_user: true, create_user: false}
+$abilities_manager.store.list(user, Topic)  # {read_topic: true}
+$abilities_manager.store.list(user, topic1) # {edit_topic: true}
+$abilities_manager.store.list(user, topic2) # {}
+
+$abilities_manager.can?(user, :create_user, nil) #  false
+$abilities_manager.can?(user, :edit_user, nil) # true
+$abilities_manager.can?(user, :read_topic, nil) # false
+$abilities_manager.can?(user, :read_topic, topic1) # true
+$abilities_manager.can?(user, :edit_topic, topic1) # true
+$abilities_manager.can?(user, :edit_topic, topic2) # false
+
+$abilities_manager.store.del(user.id, :edit_topic, topic1)
+$abilities_manager.can?(user, :edit_topic, topic1) # false
+```
+
 ### Create your store
 
 ```
-# columns: user_id: integer, ability: string, status: boolean
+# columns: user_id: integer, ability: string, scope: string, status: boolean
 class Ability < ActiveRecord::Base
-  def self.list(user)
-    where(user_id: user.id).each_with_object({}) do |record, result|
-      result[record.ability.to_sym] = record.status # true or false
+  include Seven::AbilityStore
+
+  after_initialize :set_default_values
+
+  def self.list(user, scope = Seven::AbilityStore::DEFAULT_SCOPE)
+    # query global scope, its parent and this scope
+    get_stringify_scopes(scope).each_with_object({}) do |new_scope, r|
+      hash_abs = where(user_id: user.id, scope: scope).each_with_object({}) do |record, result|
+        result[record.ability.to_sym] = record.status # true or false
+      end
+      r.merge!(hash_abs)
     end
+  end
+
+  def set_default_values
+    self.scope ||= Seven::AbilityStore::DEFAULT_SCOPE
+  end
+
+  def scope=(val)
+    write_attribute(:scope, stringify_scope(val))
   end
 end
 
@@ -427,23 +468,8 @@ Seven::Manager.new(store: Ability)
 
 # then, you can add some abilities for a user:
 Ability.create(user: user, ability: :read_user, status: true)
+Ability.create(user: user, ability: :read_user, scope: my_topic, status: true)
 ```
-
-
-### Define some dynamic rules for system store
-
-```
-$abilities_manager.store.add(user.id, :edit_user, true)
-$abilities_manager.store.add(user.id, :create_user, false)
-$abilities_manager.store.list(user.id) # {edit_user: true, create_user: false}
-
-$abilities_manager.can?(user, :create_user, nil) #  false
-$abilities_manager.can?(user, :edit_user, nil) #  true
-
-$abilities_manager.store.del(user.id, :edit_user)
-$abilities_manager.store.list(user.id) # {create_user: false}
-```
-
 
 
 ## RSpec Testing
@@ -468,13 +494,6 @@ RSpec.describe UserAbilities do
   end
 end
 ```
-
-
-
-
-## TODO
-
-* [ ] Dynamic rule for a record
 
 
 ## Development

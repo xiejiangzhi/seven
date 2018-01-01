@@ -10,6 +10,7 @@ module Seven
   autoload :Abilities, 'seven/abilities'
   autoload :Rails, 'seven/rails'
 
+  autoload :AbilityStore, 'seven/ability_store'
   autoload :MemoryStore, 'seven/memory_store'
   autoload :RedisStore, 'seven/redis_store'
 end

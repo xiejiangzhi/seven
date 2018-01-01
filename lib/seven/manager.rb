@@ -31,8 +31,8 @@ module Seven
       rule_class = matched_rules.min_by(&:first).last
       abilities = rule_class.new(current_user, target).abilities
 
-      # dynamic abilities
-      store.list(current_user).each do |new_ability, is_allowed|
+      # load dynamic abilities
+      store.list(current_user, target).each do |new_ability, is_allowed|
         is_allowed ? (abilities << new_ability) : abilities.delete(new_ability)
       end
       abilities.include?(ability.to_sym)

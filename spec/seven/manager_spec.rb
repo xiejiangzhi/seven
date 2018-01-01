@@ -4,7 +4,7 @@ RSpec.describe Seven::Manager do
   let(:user1) { User.new(role: :admin) }
   let(:user2) { User.new(role: :normal) }
   let(:topic1) { Topic.new(user_id: user1.id, is_lock: false) }
-  let(:topic2) { TOpic.new(user_id: user2.id, is_lock: true) }
+  let(:topic2) { Topic.new(user_id: user2.id, is_lock: true) }
   let(:manager) { Seven::Manager.new }
 
   describe '#define_rules' do
@@ -96,15 +96,40 @@ RSpec.describe Seven::Manager do
     it 'should support append dynamic abilities' do
       manager.store.set(user, :edit_topic, true)
       manager.store.set(user, :xxx_topic, true)
+      manager.store.set(user, :delete_topic, true, topic1)
+
       expect(manager.can?(user, :edit_topic, topic1)).to eql(true)
       expect(manager.can?(user, :xxx_topic, Topic)).to eql(true)
+      expect(manager.can?(user, :delete_topic, topic1)).to eql(true)
+      expect(manager.can?(user, :delete_topic, topic2)).to eql(false)
     end
 
-    it 'should support remove dynamic abilities' do
+    it 'should support disable dynamic abilities' do
+      manager.store.set(user, :read_topic, true)
+      manager.store.set(user, :read_topic, false, topic1)
       manager.store.set(user, :edit_topic, false)
-      manager.store.set(user, :xxx_topic, false)
+
       expect(manager.can?(user, :edit_topic, topic1)).to eql(false)
-      expect(manager.can?(user, :xxx_topic, Topic)).to eql(false)
+      expect(manager.can?(user, :read_topic, Topic)).to eql(true)
+      expect(manager.can?(user, :read_topic, topic1)).to eql(false)
+      expect(manager.can?(user, :read_topic, topic2)).to eql(true)
+    end
+
+    it 'should allow inherit dynamic abilities' do
+      manager.store.set(user, :read_topic, true)
+      manager.store.set(user, :create_topic, true, Topic)
+      manager.store.set(user, :edit_topic, true, topic1)
+      manager.store.set(user, :read_topic, false, topic2)
+
+      expect(manager.can?(user, :read_topic, topic1)).to eql(true)
+      expect(manager.can?(user, :read_topic, Topic)).to eql(true)
+      expect(manager.can?(user, :create_topic, Topic)).to eql(true)
+      expect(manager.can?(user, :create_topic, topic1)).to eql(true)
+      expect(manager.can?(user, :edit_topic, topic1)).to eql(true)
+
+      expect(manager.can?(user, :read_topic, topic2)).to eql(false)
+      expect(manager.can?(user, :edit_topic, topic2)).to eql(false)
+      expect(manager.can?(user, :create_topic, topic2)).to eql(true)
     end
   end
 
